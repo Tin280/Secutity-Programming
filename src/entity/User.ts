@@ -1,0 +1,19 @@
+import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
+
+@Entity()
+export class User {
+    @PrimaryGeneratedColumn("uuid")
+    id!: string;
+
+    @Column({ unique: true })
+    email!: string;
+
+    @Column()
+    username!: string;
+
+    @Column()
+    passwordHash!: string;
+
+    @Column({ default: "user" })
+    role!: "user" | "admin";
+}
