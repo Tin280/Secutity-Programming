@@ -9,8 +9,10 @@ import { UserParams } from "../../types/user";
 export async function userRoutes(app: FastifyInstance) {
     const userRepo = AppDataSource.getRepository(User);
 
+    // This route allows anyone to create a new user account. It includes validation for email format, password strength, and checks for duplicate emails. Try creating users with valid data, invalid email formats, weak passwords, and duplicate emails to see how the validation works and how the API responds to different scenarios.
     app.post("/user",
         {
+            // This is the test case for validating user input and preventing common vulnerabilities like SQL injection and XSS. Try creating users with valid data, invalid email formats, SQL injection attempts in the email or username, and weak passwords to see how the validation works.
             schema: {
                 tags: ["Users"],
                 summary: "Create a new user",
@@ -36,22 +38,30 @@ export async function userRoutes(app: FastifyInstance) {
                     examples: [
                         {
                             email: "user1@example.com",
-                            username: "user1",
+                            username: "user1--shouldcreate",
                             password: "StrongPassword!123",
                         },
                         {
                             email: "invalid-email",
-                            username: "user1",
-                            password: "123",
+                            username: "user2--shouldnotcreate",
+                            password: "StrongPassword!123",
                         },
                         {
                             email: "' OR 1=1 --",
-                            username: "<script>alert(1)</script>",
-                            password: "hack",
+                            username: "user3--XXSattack",
+                            password: "StrongPassword!123",
                         },
                         {
-                            email: "user1@example.com"
+                            email: "user4@example.com",
+                            username: "user4--shouldnotcreate",
+                            password: "123",
+                        },
+                        {
+                            email: "user5@example.com",
+                            username: "' OR 1=1 --",
+                            password: "StrongPassword!123",
                         }
+
                     ],
                 },
                 response: {
@@ -116,13 +126,88 @@ export async function userRoutes(app: FastifyInstance) {
 
             return reply.status(201).send(toSafeUser(user));
         });
-
-    app.get("/users", { preHandler: [app.authenticate] }, async (request, reply) => {
-        const users = await userRepo.find();
-        return reply.send(users.map(toSafeUser));
-    });
-
-    app.get("/users/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
+    // This route retrieves all users and is protected by authentication. Try accessing it without logging in to see a 401 error, then log in and access it again to see the list of users. This tests the authentication mechanism and ensures that only authenticated users can access this sensitive information.
+    app.get("/users",
+        {
+            schema: {
+                tags: ["Users"],
+                summary: "Get all users that can be seen depending on role",
+                description:
+                    "Protected route. Try once without login to see 401, then login and try again.",
+                security: [{ cookieAuth: [] }],
+                response: {
+                    200: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                id: { type: "string" },
+                                email: { type: "string" },
+                                username: { type: "string" },
+                                role: { type: "string" },
+                            },
+                        },
+                    },
+                    401: {
+                        type: "object",
+                        properties: {
+                            message: { type: "string" },
+                        },
+                    },
+                },
+            },
+            preHandler: app.authenticate,
+        }, async (request, reply) => {
+            const users = await userRepo.find();
+            return reply.send(users.map(toSafeUser));
+        });
+    // This route retrieves a user by their UUID and is protected by authentication. Try accessing it with a valid UUID, an invalid UUID format, without authentication, and with a non-existing UUID to see how the API handles each case. This tests the route's ability to validate input, enforce authentication, and handle cases where the requested resource does not exist.
+    app.get("/users/:id", {
+        schema: {
+            tags: ["Users"],
+            summary: "Get user by UUID",
+            description:
+                "Protected route. Try valid UUID, invalid UUID, no authentication, and non-existing UUID.",
+            security: [{ cookieAuth: [] }],
+            params: {
+                type: "object",
+                required: ["id"],
+                properties: {
+                    id: { type: "string" },
+                },
+            },
+            response: {
+                200: {
+                    type: "object",
+                    properties: {
+                        id: { type: "string" },
+                        email: { type: "string" },
+                        username: { type: "string" },
+                        role: { type: "string" },
+                    },
+                },
+                400: {
+                    type: "object",
+                    properties: {
+                        message: { type: "string" },
+                    },
+                },
+                401: {
+                    type: "object",
+                    properties: {
+                        message: { type: "string" },
+                    },
+                },
+                404: {
+                    type: "object",
+                    properties: {
+                        message: { type: "string" },
+                    },
+                },
+            },
+        },
+        preHandler: app.authenticate,
+    }, async (request, reply) => {
         const params = request.params as UserParams;
         const { error, value } = userIdSchema.validate(params, {
             abortEarly: true,

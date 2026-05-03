@@ -1,0 +1,780 @@
+# COMP.SEC.300 Secure CRUD API
+
+This project is a secure programming demonstration API for managing users. It was developed for the COMP.SEC.300 Secure Programming course as a small seminar-style project. The application demonstrates secure user registration, login, logout, cookie-based JWT authentication, protected routes, input validation, password hashing, safe API responses, and Swagger-based manual security testing.
+
+The goal of the project is not only to build a working CRUD API, but also to show how secure programming principles can be applied in a real backend application.
+
+---
+
+## 1. Main Features
+
+* User registration
+* User login and logout
+* Current authenticated user endpoint
+* Protected user routes
+* Password hashing with bcrypt
+* JWT authentication
+* Signed HttpOnly cookie storage
+* Input validation with Joi
+* MariaDB database using TypeORM
+* Swagger/OpenAPI documentation
+* Manual security testing through Swagger
+* Safe response mapping to avoid exposing sensitive data
+
+---
+
+## 2. Technologies Used
+
+* Node.js
+* TypeScript
+* Fastify
+* TypeORM
+* MariaDB
+* Docker
+* Joi
+* bcrypt
+* JSON Web Token
+* Fastify Cookie
+* Fastify CORS
+* Fastify Helmet
+* Fastify Rate Limit
+* Swagger / OpenAPI
+
+---
+
+## 3. Project Structure
+
+```txt
+project-root/
+  .git/
+  node_modules/
+
+  src/
+    api/
+      auth.ts
+      user.ts
+
+    entity/
+      User.ts
+
+    plugin/
+      authenticate.ts
+
+    types/
+      user.ts
+
+    utils/
+      cookies.ts
+      mapUser.ts
+      validators.ts
+
+    data-source.ts
+    index.ts
+
+  .env
+  .gitignore
+  package.json
+  package-lock.json
+  tsconfig.json
+```
+
+### Folder and File Description
+
+`src/index.ts` is the main entry point of the application. It creates the Fastify server, connects to the database, registers plugins, enables Swagger documentation, and registers the API routes.
+
+`src/data-source.ts` contains the TypeORM database configuration. It reads environment variables and connects the application to the MariaDB database.
+
+`src/api/auth.ts` contains authentication-related routes such as login, logout, and checking the currently authenticated user through `/auth/me`.
+
+`src/api/user.ts` contains user-related routes such as creating users and retrieving user data.
+
+`src/entity/User.ts` defines the User entity used by TypeORM. This entity represents the user table in the MariaDB database.
+
+`src/plugin/authenticate.ts` contains the authentication plugin. It verifies the signed JWT cookie before allowing access to protected routes.
+
+`src/types/user.ts` contains TypeScript types related to users, login data, JWT payloads, and safe user responses.
+
+`src/utils/cookies.ts` contains the authentication cookie name and cookie security options.
+
+`src/utils/mapUser.ts` contains the `toSafeUser` function. This function converts a database user entity into a safe response object without exposing sensitive fields such as `passwordHash`.
+
+`src/utils/validators.ts` contains Joi validation schemas for password rules, user creation, login, and user ID validation.
+
+---
+
+## 4. Prerequisites
+
+Before running the project, install the following tools:
+
+* Node.js
+* npm
+* Docker Desktop
+* Git
+
+Check that they are installed:
+
+```bash
+node -v
+npm -v
+docker --version
+git --version
+```
+
+---
+
+## 5. Start MariaDB with Docker
+
+Run the following command to create and start a local MariaDB container:
+
+```bash
+docker run -d \
+  --name compsec300-db \
+  -e MARIADB_USER=dbuser \
+  -e MARIADB_PASSWORD=dbpassword \
+  -e MARIADB_ROOT_PASSWORD=my-secret-pw \
+  -e MARIADB_DATABASE=compsec300-db \
+  -p 3306:3306 \
+  mariadb:latest
+```
+
+For Windows CMD, use the one-line version:
+
+```bash
+docker run -d --name compsec300-db -e MARIADB_USER=dbuser -e MARIADB_PASSWORD=dbpassword -e MARIADB_ROOT_PASSWORD=my-secret-pw -e MARIADB_DATABASE=compsec300-db -p 3306:3306 mariadb:latest
+```
+
+Check that the container is running:
+
+```bash
+docker ps
+```
+
+Expected container name:
+
+```txt
+compsec300-db
+```
+
+If the container already exists but is stopped, start it with:
+
+```bash
+docker start compsec300-db
+```
+
+---
+
+## 6. Configure Environment Variables
+
+Create a `.env` file in the project root.
+
+Example `.env`:
+
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=dbuser
+DB_PASSWORD=dbpassword
+DB_NAME=compsec300-db
+
+JWT_SECRET=change-this-jwt-secret
+COOKIE_SECRET=change-this-cookie-secret
+```
+
+The database values must match the MariaDB Docker configuration.
+
+Important: do not commit the `.env` file to GitHub.
+
+---
+
+## 7. Install Dependencies
+
+From the project root, run:
+
+```bash
+npm install
+```
+
+---
+
+## 8. Run the Backend
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+If the project uses another script, run:
+
+```bash
+npm start
+```
+
+The backend should run on:
+
+```txt
+http://localhost:8081
+```
+
+Basic health check:
+
+```txt
+http://localhost:8081/
+```
+
+Expected response:
+
+```json
+{
+  "message": "API running"
+}
+```
+
+---
+
+## 9. Swagger Documentation
+
+Swagger UI is available at:
+
+```txt
+http://localhost:8081/documentation
+```
+
+Swagger is used to document and manually test the API endpoints. It can be used to demonstrate user creation, login, logout, authentication, protected routes, validation errors, and secure response handling.
+
+---
+
+## 10. Main API Endpoints
+
+### Create User
+
+```txt
+POST /user
+```
+
+Example request body:
+
+```json
+{
+  "email": "user1@example.com",
+  "username": "user1",
+  "password": "StrongPassword!123"
+}
+```
+
+Expected result:
+
+```txt
+201 Created
+```
+
+The response should return only safe user information and must not expose the password or password hash.
+
+---
+
+### Login
+
+```txt
+POST /auth/login
+```
+
+Example request body:
+
+```json
+{
+  "email": "user1@example.com",
+  "password": "StrongPassword!123"
+}
+```
+
+Expected response:
+
+```json
+{
+  "message": "Login successful",
+  "user": {
+    "id": "uuid-here",
+    "email": "user1@example.com",
+    "username": "user1",
+    "role": "user"
+  }
+}
+```
+
+After successful login, the backend creates a JWT and stores it in a signed HttpOnly cookie.
+
+---
+
+### Get Current Authenticated User
+
+```txt
+GET /auth/me
+```
+
+This endpoint returns the currently logged-in user based on the authentication cookie.
+
+Expected response after login:
+
+```json
+{
+  "id": "uuid-here",
+  "email": "user1@example.com",
+  "username": "user1",
+  "role": "user"
+}
+```
+
+Expected response without login:
+
+```txt
+401 Unauthorized
+```
+
+---
+
+### Get All Users
+
+```txt
+GET /users
+```
+
+This is a protected route. The request must include a valid authentication cookie.
+
+Expected response without login:
+
+```txt
+401 Unauthorized
+```
+
+Expected response after login:
+
+```json
+[
+  {
+    "id": "uuid-here",
+    "email": "user1@example.com",
+    "username": "user1",
+    "role": "user"
+  }
+]
+```
+
+Security note: this endpoint returns all users. In a production system, this should normally be restricted to admin users only.
+
+---
+
+### Logout
+
+```txt
+POST /auth/logout
+```
+
+Expected response:
+
+```json
+{
+  "message": "Logout successful"
+}
+```
+
+After logout, the authentication cookie is cleared. Protected routes should return `401 Unauthorized` again.
+
+---
+
+## 11. Suggested Swagger Demo Flow
+
+Use this flow for testing or presentation:
+
+```txt
+1. Call GET /users before login
+   Expected: 401 Unauthorized
+
+2. Call POST /user with valid data
+   Expected: 201 Created
+
+3. Call POST /auth/login with valid credentials
+   Expected: 200 OK and authentication cookie is set
+
+4. Call GET /auth/me
+   Expected: current authenticated user
+
+5. Call GET /users again
+   Expected: 200 OK with safe user list
+
+6. Call POST /auth/logout
+   Expected: Logout successful
+
+7. Call GET /auth/me again
+   Expected: 401 Unauthorized
+```
+
+---
+
+## 12. Input Validation
+
+Input validation is implemented with Joi in `src/utils/validators.ts`.
+
+The password schema requires:
+
+* Minimum 12 characters
+* Maximum 128 characters
+* At least one lowercase letter
+* At least one uppercase letter
+* At least one number
+* At least one special character
+
+The create user schema validates:
+
+* `email`: must be a valid email address
+* `username`: must be between 3 and 50 characters
+* `password`: must follow the password policy
+
+The login schema validates:
+
+* `email`: must be a valid email address
+* `password`: required
+
+The user ID schema validates:
+
+* `id`: must be a valid UUID
+
+---
+
+## 13. Security Test Cases
+
+### Invalid Email
+
+```json
+{
+  "email": "invalid-email",
+  "username": "testuser",
+  "password": "StrongPassword!123"
+}
+```
+
+Expected result:
+
+```txt
+400 Bad Request
+```
+
+---
+
+### Weak Password
+
+```json
+{
+  "email": "weak@example.com",
+  "username": "weakuser",
+  "password": "123"
+}
+```
+
+Expected result:
+
+```txt
+400 Bad Request
+```
+
+---
+
+### SQL Injection-looking Email
+
+```json
+{
+  "email": "' OR 1=1 --",
+  "username": "sqltest",
+  "password": "StrongPassword!123"
+}
+```
+
+Expected result:
+
+```txt
+400 Bad Request
+```
+
+The email field must follow a valid email format, so this payload should be rejected.
+
+---
+
+### SQL Injection-looking Username
+
+```json
+{
+  "email": "user5@example.com",
+  "username": "' OR 1=1 --",
+  "password": "StrongPassword!123"
+}
+```
+
+If the username schema only checks length, this value may be stored as plain text. This does not mean SQL injection was successful. It means the username validation is too permissive.
+
+Recommended improvement:
+
+```ts
+username: Joi.string()
+  .min(3)
+  .max(30)
+  .pattern(/^[a-zA-Z0-9_-]+$/)
+  .required()
+```
+
+After this improvement, SQL injection-looking and XSS-looking usernames should be rejected.
+
+---
+
+### Login Bypass Test
+
+Test login with a SQL injection-looking email:
+
+```json
+{
+  "email": "' OR 1=1 --",
+  "password": "anything"
+}
+```
+
+Expected result:
+
+```txt
+400 Bad Request
+```
+
+or:
+
+```txt
+401 Unauthorized
+```
+
+The application should not log in successfully.
+
+---
+
+### Mass Assignment Test
+
+Try sending an unexpected `role` field during user creation:
+
+```json
+{
+  "email": "normal@example.com",
+  "username": "normaluser",
+  "password": "StrongPassword!123",
+  "role": "admin"
+}
+```
+
+Expected behavior:
+
+```txt
+The client should not be able to create an admin user by sending role in the request body.
+```
+
+The backend should either reject unknown fields or ignore them.
+
+---
+
+### Protected Route Test
+
+Call the protected route without login:
+
+```txt
+GET /users
+```
+
+Expected result:
+
+```txt
+401 Unauthorized
+```
+
+After login, the same request should return the user list.
+
+---
+
+## 14. Database Commands
+
+Login to MariaDB inside the Docker container:
+
+```bash
+docker exec -it compsec300-db mariadb -u root -p
+```
+
+Enter root password:
+
+```txt
+my-secret-pw
+```
+
+Select the database:
+
+```sql
+USE `compsec300-db`;
+```
+
+Show tables:
+
+```sql
+SHOW TABLES;
+```
+
+View all users:
+
+```sql
+SELECT id, email, username, role FROM `user`;
+```
+
+View one user:
+
+```sql
+SELECT email, username, role
+FROM `user`
+WHERE email = 'user1@example.com';
+```
+
+Change a user role:
+
+```sql
+UPDATE `user`
+SET role = 'admin'
+WHERE email = 'admin@example.com';
+```
+
+Delete all users:
+
+```sql
+DELETE FROM `user`;
+```
+
+Reset the user table:
+
+```sql
+TRUNCATE TABLE `user`;
+```
+
+If the table name is `users` instead of `user`, replace `user` with `users` in the SQL commands.
+
+---
+
+## 15. Troubleshooting
+
+### Database Connection Error
+
+If the backend cannot connect to the database, check that the MariaDB container is running:
+
+```bash
+docker ps
+```
+
+If it is stopped, start it:
+
+```bash
+docker start compsec300-db
+```
+
+Also check that the `.env` file matches the Docker database configuration.
+
+---
+
+### Port 3306 Already in Use
+
+If port `3306` is already used, stop and remove the existing container:
+
+```bash
+docker stop compsec300-db
+docker rm compsec300-db
+```
+
+Then create the container again:
+
+```bash
+docker run -d --name compsec300-db -e MARIADB_USER=dbuser -e MARIADB_PASSWORD=dbpassword -e MARIADB_ROOT_PASSWORD=my-secret-pw -e MARIADB_DATABASE=compsec300-db -p 3306:3306 mariadb:latest
+```
+
+---
+
+### CORS Error
+
+If a frontend application is used and the browser shows a CORS error, make sure the backend allows the frontend origin.
+
+Example Fastify CORS configuration:
+
+```ts
+await fastify.register(cors, {
+  origin: ["http://localhost:5173", "http://localhost:3000"],
+  credentials: true,
+});
+```
+
+Frontend requests must also include:
+
+```ts
+credentials: "include"
+```
+
+This is required for cookie-based authentication.
+
+---
+
+### Cookie Not Sent After Login
+
+Check these points:
+
+* Backend CORS must use `credentials: true`
+* Frontend fetch must use `credentials: "include"`
+* Cookie should use `httpOnly: true`
+* For local HTTP testing, cookie `secure` should be `false`
+* Cookie path should usually be `/`
+
+Example local cookie options:
+
+```ts
+{
+  httpOnly: true,
+  secure: false,
+  sameSite: "strict",
+  path: "/",
+  signed: true,
+  maxAge: 60 * 60
+}
+```
+
+---
+
+## 16. Security Notes
+
+This project demonstrates several secure programming principles:
+
+* Validate input before processing it
+* Enforce password complexity
+* Hash passwords before storing them
+* Use JWT for authentication
+* Store JWT in a signed HttpOnly cookie
+* Protect sensitive routes with an authentication pre-handler
+* Return safe user objects instead of full database entities
+* Avoid exposing `passwordHash` in API responses
+* Use TypeORM repository methods instead of raw SQL string concatenation
+* Use Swagger to manually test validation and authentication behavior
+
+One important improvement is authorization. The current `/users` route checks whether the user is authenticated, but it may also need role-based access control. In a production system, retrieving all users should normally be restricted to admin users only.
+
+---
+
+## 17. Presentation Demo Summary
+
+A good demonstration flow is:
+
+```txt
+1. Show Swagger documentation.
+2. Create a user with valid data.
+3. Try invalid email and weak password test cases.
+4. Try SQL injection-looking input.
+5. Login with valid credentials.
+6. Call /auth/me to show the current authenticated user.
+7. Call /users to show protected route access.
+8. Logout.
+9. Call /users again to show 401 Unauthorized.
+10. Explain that safe response mapping prevents passwordHash exposure.
+```
+
+This demonstrates authentication, validation, protected routes, safe responses, and secure programming principles in a practical way.
